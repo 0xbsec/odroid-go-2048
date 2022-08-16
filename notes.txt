@@ -1,3 +1,4 @@
+~/dev/odroid-go-firmware/tools/mkfw
 
 reflash after testing:
 

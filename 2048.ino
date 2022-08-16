@@ -3,6 +3,8 @@
 #define W            320     // screen width
 #define H            240     // screen height
 #define COLOR 		 false 	 // show colors or keep it w & b
+#define UNDO_STACK   100      // how many undos to save FIFO
+
 
 /*
 	TODO;
@@ -10,6 +12,9 @@
 		- score
 		- highscore
 		- extract 4 into a global var
+		- add log messages (moves count and the prev move)
+		- add menu to enable and disable COLOR
+		- add brightness controll shortcut
 */
 
 enum status {
@@ -21,7 +26,10 @@ enum status {
 status s = ongoing;
 
 int m[4][4];
+int prevm[4][4];
 int score = 0;
+int undos[UNDO_STACK][4][4];
+int moves_counter;
 
 int r() {
 	int i = random(10);
@@ -288,11 +296,11 @@ class D {
 	}
 
 	void render() {
-		//border();	
-		//header();
+		// border();	
+		// header();
 		body();
 
-		sig();
+		// sig();
 	}
 
 	void sig() {
@@ -374,6 +382,9 @@ class D {
 
 	void str(int x, int y, String s, int font_size, uint16_t bc, uint16_t fc) {
 		GO.lcd.setCursor(x, y);
+		if (s.length() >= 4) {
+			font_size -= 1;
+		}
 		GO.lcd.setTextSize(font_size);
 		if (COLOR) {
 			GO.lcd.setTextColor(fc, bc);
@@ -381,12 +392,17 @@ class D {
 			GO.lcd.setTextColor(WHITE, BLACK);
 		}
 		// clear prev printed blocks
-		GO.lcd.fillRect(x, y, GO.lcd.textWidth(s), 30, BLACK);
+		// GO.lcd.fillRect(x, y, GO.lcd.textWidth(s), 30, BLACK);
 		if (s == "0") {
-			GO.lcd.print(" ");
+			GO.lcd.print(pad(" "));
 		} else {
-			GO.lcd.print(s);
+			GO.lcd.print(pad(s));
 		}
+	}
+
+	String pad(String s) {
+		if (s.length() > 2) return s;
+		return pad(s + " ");
 	}
 };
 
@@ -398,64 +414,111 @@ void setup() {
 
 	const int w = GO.lcd.width();
 	const int h = GO.lcd.height();
+
+	init();
+}
+
+void init() {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			m[i][j] = 0;
+		}
+	}
+	s = ongoing;
+	GO.lcd.clear();
+
+	// start with two random numbers
+	add_random_n();
+	add_random_n();
+
 	d.render();
+	d.sig();
 }
  
+bool cmp() {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			if (prevm[i][j] != m[i][j]) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+bool cp() {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			prevm[i][j] = m[i][j];
+			undos[moves_counter][i][j] = m[i][j];
+		}
+	}
+
+	// update undo stack
+}
+
+
+void undo() {
+	if (moves_counter == 0) return;
+	moves_counter--;
+
+	if (moves_counter >= UNDO_STACK) return;
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			m[i][j] = undos[moves_counter][i][j];
+		}
+	}
+
+	d.render();
+}
 
 void loop() {
 	while (1) {
-		if (GO.BtnB.wasPressed()) {
-			for (int i = 0; i < 4; i++) {
-				for (int j = 0; j < 4; j++) {
-					m[i][j] = 0;
-				}
-			}
-			s = ongoing;
-			GO.lcd.clear();
-
-			// start with two random numbers
-			add_random_n();
-			add_random_n();
-			d.render();
+		if (GO.BtnA.wasPressed()) {
+			undo();
 		}
 
-		if (GO.BtnA.wasPressed()) {
-			add_random_n();
-			GO.lcd.clear();
-			d.render();
+		if (GO.BtnB.wasPressed()) {
+			init();
 		}
 
 		if (GO.JOY_Y.wasAxisPressed() == 2) {
             // UP
             move_up();
-			add_random_n();
-			GO.lcd.clear();
-			d.render();
-        }
-
-        if (GO.JOY_Y.wasAxisPressed() == 1) {
+			if (!cmp()) {
+				add_random_n();
+				d.render();
+				moves_counter++;
+			}
+        } else if (GO.JOY_Y.wasAxisPressed() == 1) {
             // DOWN
             move_down();
-			add_random_n();
-			GO.lcd.clear();
-			d.render();
-        }
-
-        if (GO.JOY_X.wasAxisPressed() == 2) {
+			if (!cmp()) {
+				add_random_n();
+				d.render();
+				moves_counter++;
+			}
+        } else if (GO.JOY_X.wasAxisPressed() == 2) {
             // LEFT
             move_left();
-			add_random_n();
-			GO.lcd.clear();
-			d.render();
-        }
-
-        if (GO.JOY_X.wasAxisPressed() == 1) {
+			if (!cmp()) {
+				add_random_n();
+				d.render();
+				moves_counter++;
+			}
+        } else if (GO.JOY_X.wasAxisPressed() == 1) {
             // RIGHT
             move_right();
-			add_random_n();
-			GO.lcd.clear();
-			d.render();
+			if (!cmp()) {
+				add_random_n();
+				d.render();
+				moves_counter++;
+			}
         }
+
+		cp();
 
 		GO.update();
 	}
