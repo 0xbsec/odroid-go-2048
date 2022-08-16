@@ -8,13 +8,11 @@
 
 /*
 	TODO;
-		- add undo
 		- score
 		- highscore
 		- extract 4 into a global var
 		- add log messages (moves count and the prev move)
 		- add menu to enable and disable COLOR
-		- add brightness controll shortcut
 */
 
 enum status {
@@ -30,6 +28,7 @@ int prevm[4][4];
 int score = 0;
 int undos[UNDO_STACK][4][4];
 int moves_counter;
+int brightness = 125;
 
 int r() {
 	int i = random(10);
@@ -412,9 +411,7 @@ void setup() {
 	GO.begin();
 	randomSeed(analogRead(0));
 
-	const int w = GO.lcd.width();
-	const int h = GO.lcd.height();
-
+    GO.lcd.setBrightness(10);
 	init();
 }
 
@@ -422,6 +419,7 @@ void init() {
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			m[i][j] = 0;
+			prevm[i][j] = 0;
 		}
 	}
 	s = ongoing;
@@ -461,9 +459,9 @@ bool cp() {
 
 void undo() {
 	if (moves_counter == 0) return;
-	moves_counter--;
-
 	if (moves_counter >= UNDO_STACK) return;
+
+	moves_counter--;
 
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
@@ -476,15 +474,19 @@ void undo() {
 
 void loop() {
 	while (1) {
-		if (GO.BtnA.wasPressed()) {
+		if (GO.BtnStart.isPressed() && GO.JOY_Y.wasAxisPressed()) {
+			int step = 20;
+			if (GO.JOY_Y.wasAxisPressed() == 2) {
+				if (brightness + step < 250)  brightness += step;
+			} else {
+				if (brightness - step > 0) brightness -= step;
+			}
+			GO.lcd.setBrightness(brightness);
+		} else if (GO.BtnA.wasPressed()) {
 			undo();
-		}
-
-		if (GO.BtnB.wasPressed()) {
+		} else if (GO.BtnB.wasPressed()) {
 			init();
-		}
-
-		if (GO.JOY_Y.wasAxisPressed() == 2) {
+		} else if (GO.JOY_Y.wasAxisPressed() == 2) {
             // UP
             move_up();
 			if (!cmp()) {
@@ -518,7 +520,7 @@ void loop() {
 			}
         }
 
-		cp();
+		if (!cmp()) cp();
 
 		GO.update();
 	}
