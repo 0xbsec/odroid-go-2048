@@ -3,7 +3,7 @@
 #define W            320     // screen width
 #define H            240     // screen height
 #define COLOR 		 false 	 // show colors or keep it w & b
-#define UNDO_STACK   100      // how many undos to save FIFO
+#define UNDO_STACK   10      // how many undos to save FIFO
 
 
 /*
@@ -381,10 +381,15 @@ class D {
 
 	void str(int x, int y, String s, int font_size, uint16_t bc, uint16_t fc) {
 		GO.lcd.setCursor(x, y);
+		GO.lcd.setTextSize(font_size);
+
 		if (s.length() >= 4) {
 			font_size -= 1;
+			int full_width = GO.lcd.textWidth(s);
+			GO.lcd.fillRect(x, y, full_width, 30, BLACK);
+			GO.lcd.setTextSize(font_size);
 		}
-		GO.lcd.setTextSize(font_size);
+
 		if (COLOR) {
 			GO.lcd.setTextColor(fc, bc);
 		} else {
@@ -445,15 +450,19 @@ bool cmp() {
 	return true;
 }
 
-bool cp() {
+void cp() {
+	// reset undo stack
+	if (moves_counter >= UNDO_STACK) {
+		moves_counter = 0;	
+		memset(undos, 0, sizeof undos);
+	}
+
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			prevm[i][j] = m[i][j];
 			undos[moves_counter][i][j] = m[i][j];
 		}
 	}
-
-	// update undo stack
 }
 
 
