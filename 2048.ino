@@ -4,15 +4,21 @@
 #define H            240     // screen height
 #define COLOR 		 false 	 // show colors or keep it w & b
 #define UNDO_STACK   10      // how many undos to save FIFO
+#define N			 4  	 // size of grid
+#define LOG          true    // enable logging
 
+int log_cursor_x = 0;
 
 /*
 	TODO;
 		- score
+		- add color
+		- check left right sudden move
 		- highscore
-		- extract 4 into a global var
-		- add log messages (moves count and the prev move)
+		- add moves counter
 		- add menu to enable and disable COLOR
+		- add numbers color?
+		- add confetti when 2048
 */
 
 enum status {
@@ -23,10 +29,10 @@ enum status {
 
 status s = ongoing;
 
-int m[4][4];
-int prevm[4][4];
+int m[N][N];
+int prevm[N][N];
 int score = 0;
-int undos[UNDO_STACK][4][4];
+int undos[UNDO_STACK][N][N];
 int moves_counter;
 int brightness = 125;
 
@@ -39,8 +45,8 @@ int r() {
 void add_random_n() {
 	int zeros_count = 0;
 
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
 			if (m[i][j] == 0) zeros_count++;
 		}
 	}
@@ -54,8 +60,8 @@ void add_random_n() {
 	int zeros_idx_c[zeros_count + 1];
 
 	int j = 0;
-	for (int i = 0; i < 4; i++) {
-		for (int k = 0; k < 4; k++) {
+	for (int i = 0; i < N; i++) {
+		for (int k = 0; k < N; k++) {
 			if (m[i][k] == 0) {
 				zeros_idx_r[j] = i;
 				zeros_idx_c[j] = k;
@@ -73,9 +79,9 @@ void add_random_n() {
 }
 
 void move_up() {
-    for (int i = 0; i < 3; i++) {
-        for (int x = 1; x < 4; x++) {
-            for (int y = 0; y < 4; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 1; x < N; x++) {
+            for (int y = 0; y < N; y++) {
                 if (m[x - 1][y] == 0) {
                     m[x - 1][y] = m[x][y];
                     m[x][y] = 0;
@@ -83,17 +89,17 @@ void move_up() {
             }
         }
     }
-    for (int x = 1; x < 4; x++) {
-        for (int y = 0; y < 4; y++) {
+    for (int x = 1; x < N; x++) {
+        for (int y = 0; y < N; y++) {
             if (m[x - 1][y] == m[x][y]) {
                 m[x - 1][y] += m[x][y];
                 m[x][y] = 0;
             }
         }
     }
-    for (int i = 0; i < 3; i++) {
-        for (int x = 1; x < 4; x++) {
-            for (int y = 0; y < 4; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 1; x < N; x++) {
+            for (int y = 0; y < N; y++) {
                 if (m[x - 1][y] == 0) {
                     m[x - 1][y] = m[x][y];
                     m[x][y] = 0;
@@ -104,9 +110,9 @@ void move_up() {
 }
 
 void move_down() {
-    for (int i = 0; i < 3; i++) {
-        for (int x = 0; x < 3; x++) {
-            for (int y = 0; y < 4; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 0; x < N - 1; x++) {
+            for (int y = 0; y < N; y++) {
                 if (m[x + 1][y] == 0) {
                     m[x + 1][y] = m[x][y];
                     m[x][y] = 0;
@@ -115,16 +121,16 @@ void move_down() {
         }
     }
     for (int x = 2; x >= 0; x--) {
-        for (int y = 0; y < 4; y++) {
+        for (int y = 0; y < N; y++) {
             if (m[x + 1][y] == m[x][y]) {
                 m[x + 1][y] += m[x][y];
                 m[x][y] = 0;
             }
         }
     }
-    for (int i = 0; i < 3; i++) {
-        for (int x = 0; x < 3; x++) {
-            for (int y = 0; y < 4; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 0; x < N - 1; x++) {
+            for (int y = 0; y < N; y++) {
                 if (m[x + 1][y] == 0) {
                     m[x + 1][y] = m[x][y];
                     m[x][y] = 0;
@@ -135,9 +141,9 @@ void move_down() {
 }
 
 void move_left() {
-    for (int i = 0; i < 3; i++) {
-        for (int x = 0; x < 4; x++) {
-            for (int y = 1; y < 4; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 0; x < N; x++) {
+            for (int y = 1; y < N; y++) {
                 if (m[x][y - 1] == 0) {
                     m[x][y - 1] = m[x][y];
                     m[x][y] = 0;
@@ -145,17 +151,17 @@ void move_left() {
             }
         }
     }
-    for (int x = 0; x < 4; x++) {
-        for (int y = 1; y < 4; y++) {
+    for (int x = 0; x < N; x++) {
+        for (int y = 1; y < N; y++) {
             if (m[x][y - 1] == m[x][y]) {
                 m[x][y - 1] += m[x][y];
                 m[x][y] = 0;
             }
         }
     }
-    for (int i = 0; i < 3; i++) {
-        for (int x = 0; x < 4; x++) {
-            for (int y = 1; y < 4; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 0; x < N; x++) {
+            for (int y = 1; y < N; y++) {
                 if (m[x][y - 1] == 0) {
                     m[x][y - 1] = m[x][y];
                     m[x][y] = 0;
@@ -166,9 +172,9 @@ void move_left() {
 }
 
 void move_right() {
-    for (int i = 0; i < 3; i++) {
-        for (int x = 0; x < 4; x++) {
-            for (int y = 0; y < 3; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 0; x < N; x++) {
+            for (int y = 0; y < N - 1; y++) {
                 if (m[x][y + 1] == 0) {
                     m[x][y + 1] = m[x][y];
                     m[x][y] = 0;
@@ -176,7 +182,7 @@ void move_right() {
             }
         }
     }
-    for (int x = 0; x < 4; x++) {
+    for (int x = 0; x < N; x++) {
         for (int y = 2; y >= 0; y--) {
             if (m[x][y + 1] == m[x][y]) {
                 m[x][y + 1] += m[x][y];
@@ -184,9 +190,9 @@ void move_right() {
             }
         }
     }
-    for (int i = 0; i < 3; i++) {
-        for (int x = 0; x < 4; x++) {
-            for (int y = 0; y < 3; y++) {
+    for (int i = 0; i < N - 1; i++) {
+        for (int x = 0; x < N; x++) {
+            for (int y = 0; y < N - 1; y++) {
                 if (m[x][y + 1] == 0) {
                     m[x][y + 1] = m[x][y];
                     m[x][y] = 0;
@@ -308,6 +314,22 @@ class D {
 		str(w - s.length() * 6 - 5, h - 10, s);
 	}
 
+	void log(String msg) {
+		if (!LOG) return;
+		if (log_cursor_x >= W - 10) {
+			log_cursor_x = 0;
+			GO.lcd.fillRect(0, 0, w, 10, BLACK);
+		}
+
+		GO.lcd.setCursor(log_cursor_x, 0);
+		GO.lcd.setTextSize(1);
+		GO.lcd.setTextColor(RED);
+
+		// str(0, 0, msg);
+		GO.lcd.print(msg);
+		log_cursor_x += 6;
+	}
+
 	void border() {
 		// uint16_t beige = rgb(250, 248, 239); 
 		// uint16_t beige = rgb(255, 255, 255); 
@@ -350,8 +372,8 @@ class D {
 		int ox = 70; // next element offset x
 		int oy = 50; // next element offset y
 		
-		for(int r = 0; r < 4; r++) {
-			for (int c = 0; c < 4; c++) {
+		for(int r = 0; r < N; r++) {
+			for (int c = 0; c < N; c++) {
 				RGB bc = Color::bcolor(m[r][c]);			
 				RGB fc = Color::fcolor(m[r][c]);
 
@@ -366,11 +388,13 @@ class D {
 	}
 
 	uint16_t rgb(int r, int g, int b) {
-		return (r << 16) | (g << 8) | b;
+		// return (r << 16) | (g << 8) | b;
+		// check http://drakker.org/convert_rgb565.html
+		return ((r & 0b11111000) << 8) | ((g & 0b11111100) << 3) | (b >> 3);
 	}
 
 	uint16_t rgb(RGB c) {
-		return (c.r << 16) | (c.g << 8) | c.b;
+		return rgb(c.r, c.g, c.b);
 	}
 
 	void str(int x, int y, String s) {
@@ -421,8 +445,8 @@ void setup() {
 }
 
 void init() {
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
 			m[i][j] = 0;
 			prevm[i][j] = 0;
 		}
@@ -439,8 +463,8 @@ void init() {
 }
  
 bool cmp() {
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
 			if (prevm[i][j] != m[i][j]) {
 				return false;
 			}
@@ -457,8 +481,8 @@ void cp() {
 		memset(undos, 0, sizeof undos);
 	}
 
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
 			prevm[i][j] = m[i][j];
 			undos[moves_counter][i][j] = m[i][j];
 		}
@@ -472,8 +496,8 @@ void undo() {
 
 	moves_counter--;
 
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
 			m[i][j] = undos[moves_counter][i][j];
 		}
 	}
@@ -497,6 +521,7 @@ void loop() {
 			init();
 		} else if (GO.JOY_Y.wasAxisPressed() == 2) {
             // UP
+			d.log("u");
             move_up();
 			if (!cmp()) {
 				add_random_n();
@@ -505,6 +530,7 @@ void loop() {
 			}
         } else if (GO.JOY_Y.wasAxisPressed() == 1) {
             // DOWN
+			d.log("d");
             move_down();
 			if (!cmp()) {
 				add_random_n();
@@ -513,6 +539,7 @@ void loop() {
 			}
         } else if (GO.JOY_X.wasAxisPressed() == 2) {
             // LEFT
+			d.log("l");
             move_left();
 			if (!cmp()) {
 				add_random_n();
@@ -521,6 +548,7 @@ void loop() {
 			}
         } else if (GO.JOY_X.wasAxisPressed() == 1) {
             // RIGHT
+			d.log("r");
             move_right();
 			if (!cmp()) {
 				add_random_n();
