@@ -2,22 +2,23 @@
 
 #define W            320     // screen width
 #define H            240     // screen height
-#define COLOR 		 false 	 // show colors or keep it w & b
 #define UNDO_STACK   10      // how many undos to save FIFO
 #define N			 4  	 // size of grid
-#define LOG          true    // enable logging
+#define LOG          false    // enable logging
+#define COLOR        true	 // show colors or keep it w & b
+#define bx 0 // body start offset x
+#define by 0 // body start offset y
+#define	ox 80 // next element offset x 
+#define oy 60 // next element offset y
 
 int log_cursor_x = 0;
 
 /*
 	TODO;
 		- score
-		- add color
 		- check left right sudden move
 		- highscore
 		- add moves counter
-		- add menu to enable and disable COLOR
-		- add numbers color?
 		- add confetti when 2048
 */
 
@@ -213,24 +214,24 @@ class Color {
 	Color();
 
 	public:
-    static RGB bcolor(int value) {
-		if (s == ongoing) {
+    static uint16_t bcolor(int value) {
+		/*if (s == ongoing) {*/
 			switch (value) {
-				case 0: return {205 , 193, 181};
-				case 2: return {238 , 228, 218};
-				case 4: return {237, 224, 200};
-				case 8: return {242, 177, 121};
-				case 16: return {245, 149,  99};
-				case 32: return { 246, 124,  95};
-				case 64: return { 246,  94,  59};
-				case 128: return { 237, 207, 114};
-				case 256: return { 237, 204,  97};
-				case 512: return { 237, 200,  80};
-				case 1024: return { 237, 197,  63};
-				case 2048: return { 237, 194,  46};
-				default: return { 60,  58,  50};
+				case 0: return 0xC5F6;
+				case 2: return 0xE71A;
+				case 4: return 0xE6F8;
+				case 8: return 0xED6E;
+				case 16: return 0xEC8C;
+				case 32: return 0xEBCB;
+				case 64: return 0xEAE7;
+				case 128: return 0xE66D;
+				case 256: return 0xE64B;
+				case 512: return 0xE629;
+				case 1024: return 0xE607;
+				case 2048: return 0xE5E5;
+				default: return 0xE5E5;
 			}
-		} else if (s == over) {
+		/*} else if (s == over) {
 			switch (value) {
 				case 2: return { 238, 228, 219};
 				case 4: return { 238, 227, 214};
@@ -261,19 +262,19 @@ class Color {
 				case 2048: return { 236, 193,  64};
 				default: return { 148, 126,  57};
 			}
-		}
+		}*/
     }
 
 
-	static RGB fcolor(int value) {
-		if (s == ongoing) {
+	static uint16_t fcolor(int value) {
+		/*if (s == ongoing) {*/
 			switch (value) {
-				case 0: return RGB {205, 193, 181};
-				case 2: return RGB {118, 110, 101};
-				case 4: return RGB {118, 110, 101};
-				default: return RGB {249, 246, 242};
+				case 0: return 0xC5F6;
+				case 2: return 0x736C;
+				case 4: return 0x736C;
+				default: return 0xF79D;
 			}
-		} else if (s == over) {
+		/*} else if (s == over) {
 			switch (value) {
 				case 2: return { 206, 195, 187};
                 default: return { 241, 233, 226};
@@ -285,7 +286,7 @@ class Color {
 				case 4: return { 177, 152,  82};
 				default: return { 242, 220, 153};
 			}
-		}
+		}*/
 	}
 };
 
@@ -295,6 +296,7 @@ class D {
 	int bt = 12; // border thickness
 
 	public:
+	bool color = COLOR; // starting color
 	D(int sw, int sh) {
 		w = sw;
 		h = sh;
@@ -310,7 +312,13 @@ class D {
 
 	void sig() {
 		String s = String("with <3 mhasbini.com");
-		GO.lcd.setTextColor(WHITE);
+
+		if (color) {
+			GO.lcd.setTextColor(BLACK);
+		} else {
+			GO.lcd.setTextColor(WHITE);
+		}
+
 		str(w - s.length() * 6 - 5, h - 10, s);
 	}
 
@@ -366,23 +374,15 @@ class D {
 	}
 
 	void body() {
-		int bx = 40; // body start offset x
-		int by = 50; // body start offset y
-
-		int ox = 70; // next element offset x
-		int oy = 50; // next element offset y
-		
 		for(int r = 0; r < N; r++) {
 			for (int c = 0; c < N; c++) {
-				RGB bc = Color::bcolor(m[r][c]);			
-				RGB fc = Color::fcolor(m[r][c]);
+				uint16_t bc = Color::bcolor(m[r][c]);			
+				uint16_t fc = Color::fcolor(m[r][c]);
 
 				int x = bx + ox * c;
 				int y = by + oy * r;
 
-				if (COLOR) GO.lcd.fillRect(x - ox/2, y - oy/2, x + ox/2, y + oy/2, rgb(bc));
-
-				str(x, y, String(m[r][c]), 3, rgb(bc), rgb(fc));
+				str(x, y, String(m[r][c]), 3, bc, fc);
 			}
 		}
 	}
@@ -404,33 +404,66 @@ class D {
 	}
 
 	void str(int x, int y, String s, int font_size, uint16_t bc, uint16_t fc) {
-		GO.lcd.setCursor(x, y);
 		GO.lcd.setTextSize(font_size);
+		int full_width = GO.lcd.textWidth(s);
 
 		if (s.length() >= 4) {
 			font_size -= 1;
-			int full_width = GO.lcd.textWidth(s);
 			GO.lcd.fillRect(x, y, full_width, 30, BLACK);
 			GO.lcd.setTextSize(font_size);
-		}
+		}  
 
-		if (COLOR) {
-			GO.lcd.setTextColor(fc, bc);
+		if (color) {
+			GO.lcd.setTextColor(fc);
+			GO.lcd.fillRect(x, y, ox, oy, bc);
+			// GO.lcd.fillRoundRect(x, y - 20, ox, oy, 90, bc);
 		} else {
 			GO.lcd.setTextColor(WHITE, BLACK);
+			GO.lcd.fillRect(x, y, full_width, 30, BLACK);
 		}
-		// clear prev printed blocks
-		// GO.lcd.fillRect(x, y, GO.lcd.textWidth(s), 30, BLACK);
+		
+		int offset_x;
+		int offset_y;
+
+		switch (s.length()) {
+			case 1:
+				offset_x = 30;
+				offset_y = 20;
+				break;
+			case 2:
+				offset_x = 20;
+				offset_y = 20;
+				break;
+			case 3:
+				offset_x = 15;
+				offset_y = 20;
+				break;
+			case 4:
+				offset_x = 15;
+				offset_y = 25;
+				break;
+		}
+
+		GO.lcd.setCursor(x + offset_x, y + offset_y);
+
 		if (s == "0") {
-			GO.lcd.print(pad(" "));
+			GO.lcd.print(" ");
 		} else {
-			GO.lcd.print(pad(s));
+			GO.lcd.print(s);
 		}
 	}
 
 	String pad(String s) {
+		// center with spaces
+		int size = ox / 6;
 		if (s.length() > 2) return s;
+		if (s.length() == 1) return pad(" " + s + " ");
+		if (s.length() == 2) return pad(" " + s);
 		return pad(s + " ");
+	}
+
+	void setColor(bool c) {
+		color = c;
 	}
 };
 
@@ -506,60 +539,94 @@ void undo() {
 }
 
 void loop() {
-	while (1) {
-		if (GO.BtnStart.isPressed() && GO.JOY_Y.wasAxisPressed()) {
-			int step = 20;
-			if (GO.JOY_Y.wasAxisPressed() == 2) {
-				if (brightness + step < 250)  brightness += step;
-			} else {
-				if (brightness - step > 0) brightness -= step;
-			}
-			GO.lcd.setBrightness(brightness);
-		} else if (GO.BtnA.wasPressed()) {
-			undo();
-		} else if (GO.BtnB.wasPressed()) {
-			init();
-		} else if (GO.JOY_Y.wasAxisPressed() == 2) {
-            // UP
-			d.log("u");
-            move_up();
-			if (!cmp()) {
-				add_random_n();
-				d.render();
-				moves_counter++;
-			}
-        } else if (GO.JOY_Y.wasAxisPressed() == 1) {
-            // DOWN
-			d.log("d");
-            move_down();
-			if (!cmp()) {
-				add_random_n();
-				d.render();
-				moves_counter++;
-			}
-        } else if (GO.JOY_X.wasAxisPressed() == 2) {
-            // LEFT
-			d.log("l");
-            move_left();
-			if (!cmp()) {
-				add_random_n();
-				d.render();
-				moves_counter++;
-			}
-        } else if (GO.JOY_X.wasAxisPressed() == 1) {
-            // RIGHT
-			d.log("r");
-            move_right();
-			if (!cmp()) {
-				add_random_n();
-				d.render();
-				moves_counter++;
-			}
-        }
+	GO.update();
 
-		if (!cmp()) cp();
-
-		GO.update();
+	// update brightness
+	if (GO.BtnStart.isPressed() && GO.JOY_Y.wasAxisPressed()) {
+		int step = 20;
+		if (GO.JOY_Y.wasAxisPressed() == 2) {
+			if (brightness + step < 250)  brightness += step;
+		} else {
+			if (brightness - step > 0) brightness -= step;
+		}
+		GO.lcd.setBrightness(brightness);
+		return;
 	}
+
+	// toggle colors
+	if (GO.BtnStart.isPressed() && GO.JOY_X.wasAxisPressed()) {
+		if (GO.JOY_X.wasAxisPressed() == 2) {
+			d.log("color toggle");
+			d.setColor(!d.color);
+			GO.lcd.clear();
+			d.render();
+		} 
+		return;
+	}
+
+	if (GO.BtnA.wasPressed()) {
+		undo();
+		// m[0][0] = 512;
+		return;
+	}
+
+	if (GO.BtnB.wasPressed()) {
+		init();
+		return;
+	}
+
+	if (GO.JOY_Y.wasAxisPressed() == 2) {
+		// UP
+		d.log("u");
+		move_up();
+		if (!cmp()) {
+			add_random_n();
+			d.render();
+			moves_counter++;
+		}
+		GO.update();
+		return;
+	}
+
+	if (GO.JOY_Y.wasAxisPressed() == 1) {
+		// DOWN
+		d.log("d");
+		move_down();
+		if (!cmp()) {
+			add_random_n();
+			d.render();
+			moves_counter++;
+		}
+		GO.update();
+		return;
+	}
+
+	if (GO.JOY_X.wasAxisPressed() == 2) {
+		// LEFT
+		d.log("l");
+		move_left();
+		if (!cmp()) {
+			add_random_n();
+			d.render();
+			moves_counter++;
+		}
+		GO.update();
+		return;
+	}
+
+	if (GO.JOY_X.wasAxisPressed() == 1) {
+		// RIGHT
+		d.log("r");
+		move_right();
+		if (!cmp()) {
+			add_random_n();
+			d.render();
+			moves_counter++;
+		}
+		GO.update();
+		return;
+	}
+
+	if (!cmp()) cp();
 }
 
