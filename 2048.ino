@@ -2,14 +2,16 @@
 
 #define W            320     // screen width
 #define H            240     // screen height
-#define UNDO_STACK   10      // how many undos to save FIFO
+#define UNDO_STACK   20      // how many undos to save
 #define N			 4  	 // size of grid
 #define LOG          false    // enable logging
 #define COLOR        true	 // show colors or keep it w & b
 #define bx 0 // body start offset x
 #define by 0 // body start offset y
-#define	ox 80 // next element offset x 
-#define oy 60 // next element offset y
+#define	ox 79 // next element offset x 
+#define oy 59 // next element offset y
+#define A  6 // round angle
+#define bo 6 // border offset
 
 int log_cursor_x = 0;
 
@@ -79,6 +81,7 @@ void add_random_n() {
 	m[k][c] = n;
 }
 
+// source for the movements: https://gist.github.com/josephg/7745028 
 void move_up() {
     for (int i = 0; i < N - 1; i++) {
         for (int x = 1; x < N; x++) {
@@ -214,10 +217,15 @@ class Color {
 	Color();
 
 	public:
+
+
+	const static uint16_t bbcolor = 0xB553; // whole board background color
+
+	// converted using http://drakker.org/convert_rgb565.html
     static uint16_t bcolor(int value) {
 		/*if (s == ongoing) {*/
 			switch (value) {
-				case 0: return 0xC5F6;
+				case 0: return 0xC5F5;
 				case 2: return 0xE71A;
 				case 4: return 0xE6F8;
 				case 8: return 0xED6E;
@@ -338,29 +346,6 @@ class D {
 		log_cursor_x += 6;
 	}
 
-	void border() {
-		// uint16_t beige = rgb(250, 248, 239); 
-		// uint16_t beige = rgb(255, 255, 255); 
-		uint16_t beige = BLACK; 
-
-		// GO.lcd.fillScreen(beige);
-		GO.lcd.setTextColor(WHITE);
-
-		// x, y, w, h, color
-		// top
-		GO.lcd.fillRect(0, 0, w, bt, beige);
-
-		// left
-		GO.lcd.fillRect(0, 0, bt, h, beige);
-
-		// right
-		GO.lcd.fillRect(w - bt, 0, bt, h, beige);
-
-		// bottom
-		GO.lcd.fillRect(bt, h - bt, w - 2*bt, bt, beige);
-
-	}
-
 	void header() {
 		int bw = 40;
 		int bh = 30;
@@ -409,17 +394,17 @@ class D {
 
 		if (s.length() >= 4) {
 			font_size -= 1;
-			GO.lcd.fillRect(x, y, full_width, 30, BLACK);
+
 			GO.lcd.setTextSize(font_size);
 		}  
 
 		if (color) {
 			GO.lcd.setTextColor(fc);
-			GO.lcd.fillRect(x, y, ox, oy, bc);
+			GO.lcd.fillRoundRect(x + bo, y + bo, ox - bo, oy - bo, A, bc);
 			// GO.lcd.fillRoundRect(x, y - 20, ox, oy, 90, bc);
 		} else {
 			GO.lcd.setTextColor(WHITE, BLACK);
-			GO.lcd.fillRect(x, y, full_width, 30, BLACK);
+			GO.lcd.fillRect(x, y, ox, oy, BLACK);
 		}
 		
 		int offset_x;
@@ -427,11 +412,11 @@ class D {
 
 		switch (s.length()) {
 			case 1:
-				offset_x = 30;
-				offset_y = 20;
+				offset_x = 34;
+				offset_y = 22;
 				break;
 			case 2:
-				offset_x = 20;
+				offset_x = 26;
 				offset_y = 20;
 				break;
 			case 3:
@@ -439,7 +424,7 @@ class D {
 				offset_y = 20;
 				break;
 			case 4:
-				offset_x = 15;
+				offset_x = 19;
 				offset_y = 25;
 				break;
 		}
@@ -474,6 +459,7 @@ void setup() {
 	randomSeed(analogRead(0));
 
     GO.lcd.setBrightness(10);
+
 	init();
 }
 
@@ -484,15 +470,17 @@ void init() {
 			prevm[i][j] = 0;
 		}
 	}
+
 	s = ongoing;
 	GO.lcd.clear();
+	if (d.color) GO.lcd.fillRoundRect(0, 0, W, H, A, Color::bbcolor);
 
 	// start with two random numbers
 	add_random_n();
 	add_random_n();
 
 	d.render();
-	d.sig();
+	// d.sig();
 }
  
 bool cmp() {
@@ -559,6 +547,10 @@ void loop() {
 			d.log("color toggle");
 			d.setColor(!d.color);
 			GO.lcd.clear();
+			if (d.color) {
+				// redraw background that was removed by the clear();
+				GO.lcd.fillRoundRect(0, 0, W, H, A, Color::bbcolor);
+			}
 			d.render();
 		} 
 		return;
